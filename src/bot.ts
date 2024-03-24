@@ -31,7 +31,6 @@ bot.on('message', (msg) => {
     }
 
     const [_, tokenName, date] = args;
-
     const apiUrl = `${process.env.PYTHON_API_URL}?token=${encodeURIComponent(tokenName)}&date=${encodeURIComponent(date)}`;
 
     axios.get<PredictedPriceResponse>(apiUrl)
