@@ -1,7 +1,6 @@
 import dotenv from 'dotenv'; // Ensure dotenv is imported
 import express from 'express';
 import bodyParser from 'body-parser';
-import ngrok from 'ngrok';
 import { bot, processMessage } from './bot'; // Import bot and processMessage
 
 dotenv.config();
@@ -12,13 +11,17 @@ app.use(bodyParser.json()); // For parsing application/json
 const port = process.env.PORT || 3000;
 
 // Start the Express server
-app.listen(port, async () => {
+app.listen(port, () => {
   console.log(`Server running on port ${port}`);
-  const ngrokUrl = await ngrok.connect(port);
-  console.log(`Server exposed through ngrok at ${ngrokUrl}`);
-
-  // Set the bot's webhook URL to ngrok URL
-  bot.setWebHook(`${ngrokUrl}/bot${process.env.TELEGRAM_BOT_TOKEN}`);
+  
+  // Assuming you have an environment variable for your webhook URL
+  const webhookUrl = process.env.WEBHOOK_URL || 'your-external-ngrok-url-retrieval-mechanism';
+  
+  // Construct the complete webhook URL
+  const completeWebhookUrl = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
+  
+  // Set the webhook for the bot
+  bot.setWebHook(completeWebhookUrl);
 });
 
 // Endpoint to receive updates from Telegram
