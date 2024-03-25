@@ -5,7 +5,7 @@ import axios from 'axios';
 dotenv.config();
 
 const token = process.env.TELEGRAM_BOT_TOKEN || '';
-const bot = new TelegramBot(token, { polling: true });
+const bot = new TelegramBot(token);
 
 interface PredictedPriceResponse {
   predictedPrice: number;
@@ -19,7 +19,8 @@ interface AxiosError {
   };
 }
 
-bot.on('message', (msg) => {
+// Function to process message
+function processMessage(msg: TelegramBot.Message) {
   const chatId = msg.chat.id;
   const text = msg.text || '';
 
@@ -30,7 +31,7 @@ bot.on('message', (msg) => {
       return;
     }
 
-    const [_, tokenName, date] = args;
+    const [, tokenName, date] = args;
     const apiUrl = `${process.env.PYTHON_API_URL}?token=${encodeURIComponent(tokenName)}&date=${encodeURIComponent(date)}`;
 
     axios.get<PredictedPriceResponse>(apiUrl)
@@ -47,6 +48,7 @@ bot.on('message', (msg) => {
         bot.sendMessage(chatId, errorMessage);
       });
   }
-});
+}
 
-console.log('Bot started...');
+// Export the bot and processMessage function for use in server.ts
+export { bot, processMessage };
