@@ -1,7 +1,7 @@
 import dotenv from 'dotenv'; // Ensure dotenv is imported
 import express from 'express';
 import bodyParser from 'body-parser';
-import { bot, processMessage } from './bot'; // Import bot and processMessage
+import { bot, processMessage } from './bot.js'; // Import bot and processMessage
 
 dotenv.config();
 
