@@ -1,34 +1,33 @@
-import dotenv from 'dotenv'; // Ensure dotenv is imported
+import dotenv from 'dotenv';
 import express from 'express';
 import bodyParser from 'body-parser';
-import { bot, processMessage } from './bot.js'; // Import bot and processMessage
+import { bot, processMessage } from './bot';
 
 dotenv.config();
 
 const app = express();
-app.use(bodyParser.json()); // For parsing application/json
+const token = process.env.TELEGRAM_BOT_TOKEN || '';
+
+app.use(bodyParser.json());
 
 const port = process.env.PORT || 3000;
 
-// Start the Express server
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`Server running on port ${port}`);
+  const webhookUrl = process.env.WEBHOOK_URL || '';
   
-  // Assuming you have an environment variable for your webhook URL
-  const webhookUrl = process.env.WEBHOOK_URL || 'your-external-ngrok-url-retrieval-mechanism';
-  
-  // Construct the complete webhook URL
-  const completeWebhookUrl = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
-  
-  // Set the webhook for the bot
-  bot.setWebHook(completeWebhookUrl);
+  try {
+    await bot.setWebHook(`${webhookUrl}/bot${token}`);
+    console.log('Webhook set');
+  } catch (error) {
+    console.error('Failed to set webhook', error);
+  }
 });
 
-// Endpoint to receive updates from Telegram
-app.post(`/bot${process.env.TELEGRAM_BOT_TOKEN}`, (req, res) => {
+app.post(`/bot${token}`, (req, res) => {
   const update = req.body;
   if (update.message) {
     processMessage(update.message);
   }
-  res.sendStatus(200); // Responding to Telegram to acknowledge receipt of the update
+  res.sendStatus(200);
 });
