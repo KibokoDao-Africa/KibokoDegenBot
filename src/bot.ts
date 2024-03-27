@@ -20,14 +20,14 @@ interface AxiosError {
 }
 
 // Function to process message
-function processMessage(msg: TelegramBot.Message) {
+async function processMessage(msg: TelegramBot.Message) {
   const chatId = msg.chat.id;
   const text = msg.text || '';
 
   if (text.startsWith('/price')) {
     const args = text.split(' ');
     if (args.length < 3) {
-      bot.sendMessage(chatId, 'Usage: /price [token] [date]');
+      await bot.sendMessage(chatId, 'Usage: /price [token] [date]');
       return;
     }
 
@@ -50,5 +50,4 @@ function processMessage(msg: TelegramBot.Message) {
   }
 }
 
-// Export the bot and processMessage function for use in server.ts
 export { bot, processMessage };
