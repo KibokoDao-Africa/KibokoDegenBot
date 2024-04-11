@@ -1,53 +1,91 @@
 import dotenv from 'dotenv';
-import TelegramBot from 'node-telegram-bot-api';
+import TelegramBot, { InlineKeyboardButton } from 'node-telegram-bot-api';
 import axios from 'axios';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 
 dotenv.config();
 
 const token = process.env.TELEGRAM_BOT_TOKEN || '';
+const apiUrl = process.env.MODEL_API_URL || '';
 const bot = new TelegramBot(token);
 
-interface PredictedPriceResponse {
-  predictedPrice: number;
+type TokenMap = { [key: string]: number };
+const tokens: TokenMap = {
+  // ... your tokens object ...
+};
+const latest_date_in_dataset = '2024/01/23';
+const interval = 4;
+
+function showTokenSelection(chatId: number) {
+  const keyboard: InlineKeyboardButton[][] = Object.keys(tokens).map(token => [{ text: token, callback_data: token }]);
+  bot.sendMessage(chatId, 'Select a token:', { reply_markup: { inline_keyboard: keyboard } });
 }
 
-interface AxiosError {
-  response?: {
-    data: {
-      message: string;
-    };
-  };
+async function handleCallbackQuery(callbackQuery: TelegramBot.CallbackQuery) {
+  const message = callbackQuery.message;
+  const chatId = message?.chat.id;
+  const tokenName = callbackQuery.data;
+
+  if (!chatId || typeof tokenName !== 'string') return;
+
+  bot.sendMessage(chatId, `Selected: ${tokenName}. Now, please enter the date (format YYYY/MM/DD).`, { reply_markup: { force_reply: true } })
+    .then(sent => {
+      bot.onReplyToMessage(chatId, sent.message_id, async msg => {
+        if (msg.text) {
+          await processPriceRequest(chatId, tokenName, msg.text);
+        } else {
+          bot.sendMessage(chatId, "Error: No date provided. Please provide a date in the format YYYY/MM/DD.");
+        }
+      });
+    });
 }
 
-// Function to process message
-async function processMessage(msg: TelegramBot.Message) {
-  const chatId = msg.chat.id;
-  const text = msg.text || '';
-
-  if (text.startsWith('/price')) {
-    const args = text.split(' ');
-    if (args.length < 3) {
-      await bot.sendMessage(chatId, 'Usage: /price [token] [date]');
+async function processPriceRequest(chatId: number, tokenName: string, dateString: string) {
+  try {
+    const tokenIndex = tokens[tokenName];
+    if (tokenIndex === undefined) {
+      await bot.sendMessage(chatId, `Unsupported token: ${tokenName}`);
       return;
     }
 
-    const [, tokenName, date] = args;
-    const apiUrl = `${process.env.PYTHON_API_URL}?token=${encodeURIComponent(tokenName)}&date=${encodeURIComponent(date)}`;
+    const latestDate = parseISO(latest_date_in_dataset);
+    const requestedDate = parseISO(dateString);
+    const daysDifference = differenceInCalendarDays(requestedDate, latestDate);
+    const intervals = Math.floor(daysDifference / interval);
 
-    axios.get<PredictedPriceResponse>(apiUrl)
-      .then(response => {
-        const predictedPrice = response.data.predictedPrice;
-        bot.sendMessage(chatId, `Predicted closing price for ${tokenName} on ${date}: ${predictedPrice}`);
-      })
-      .catch((error: AxiosError) => {
-        console.error(error);
-        let errorMessage = 'Sorry, there was an error processing your request.';
-        if (error.response && error.response.data) {
-          errorMessage += ` Error: ${error.response.data.message}`;
-        }
-        bot.sendMessage(chatId, errorMessage);
-      });
+    // Using the API URL from .env
+    if (!apiUrl) {
+      throw new Error("API URL not configured in .env file.");
+    }
+
+    const data = {
+      instances: [{
+        interval: intervals,
+        token: tokenIndex
+      }]
+    };
+
+    const response = await axios.post(apiUrl, data);
+    const predictions = response.data.predictions;
+    const predictedPrice = predictions[intervals];
+
+    await bot.sendMessage(chatId, `Predicted closing price for ${tokenName} on ${dateString}: ${predictedPrice}`);
+  } catch (error) {
+    console.error(error);
+    let errorMessage = 'Sorry, there was an error processing your request.';
+    if (error instanceof Error) {
+      errorMessage += ` ${error.message}`;
+    }
+    await bot.sendMessage(chatId, errorMessage);
   }
 }
 
-export { bot, processMessage };
+bot.on('message', (msg) => {
+  if (msg.text?.startsWith('/closingprice')) {
+    showTokenSelection(msg.chat.id);
+  }
+});
+
+bot.on('callback_query', handleCallbackQuery);
+
+export { bot };
