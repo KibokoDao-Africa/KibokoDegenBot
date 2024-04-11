@@ -1,20 +1,20 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import bodyParser from 'body-parser';
-import { bot } from './bot.js'; // Make sure this import path is correct
+import { bot } from './bot.js'; // Adjust this path if necessary
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3000; // Railway might set this automatically
 const token = process.env.TELEGRAM_BOT_TOKEN;
-const webhookUrl = process.env.WEBHOOK_URL; // Ensure this is set in your .env file
+const webhookUrl = process.env.WEBHOOK_URL;
 
 app.use(bodyParser.json());
 
 // Set webhook on startup
 bot.setWebHook(`${webhookUrl}/bot${token}`).then(() => {
-    console.log('Webhook set successfully');
+    console.log('Webhook set successfully to', `${webhookUrl}/bot${token}`);
 }).catch((error) => {
     console.error('Error setting webhook: ', error);
 });
@@ -29,4 +29,3 @@ app.post(`/bot${token}`, (req, res) => {
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
-
