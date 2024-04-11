@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import bodyParser from 'body-parser';
-import { bot } from './bot'; // Make sure this import path is correct
+import { bot } from './bot.js'; // Make sure this import path is correct
 
 dotenv.config();
 
