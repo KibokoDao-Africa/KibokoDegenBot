@@ -25,6 +25,11 @@ app.post(`/bot${token}`, (req, res) => {
     res.sendStatus(200);
 });
 
+// Add a simple GET route for the root
+app.get('/', (req, res) => {
+    res.send('Hello from Telegram Bot Server!');
+});
+
 // Start Express server
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
