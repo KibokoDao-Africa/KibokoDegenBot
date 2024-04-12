@@ -88,7 +88,7 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
 }
 
 bot.on("message", (msg) => {
-  if (msg.text && (msg.text.startsWith("/closingprice"))) {
+  if (msg.text && (msg.text.startsWith("/command1"))) {
     showTokenSelection(msg.chat.id);
   }
 });
