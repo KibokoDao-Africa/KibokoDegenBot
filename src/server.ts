@@ -1,16 +1,16 @@
 import dotenv from 'dotenv';
-import express from 'express';
-import bodyParser from 'body-parser';
-import { bot } from './bot.js'; // Adjust this path if necessary
+import express, { Request, Response, NextFunction, Express } from 'express';
+import { bot } from './bot.js';  // Ensure this path matches the location of your bot script
 
 dotenv.config();
 
-const app = express();
-const port = process.env.PORT || 3000; // Railway might set this automatically
+const app: Express = express();
+const port = process.env.PORT || 3000; // Handles the port setting for Railway or other platforms
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const webhookUrl = process.env.WEBHOOK_URL;
 
-app.use(bodyParser.json());
+// Properly configure bodyParser to parse JSON payloads
+app.use(express.json());
 
 // Set webhook on startup
 bot.setWebHook(`${webhookUrl}/bot${token}`).then(() => {
@@ -20,14 +20,20 @@ bot.setWebHook(`${webhookUrl}/bot${token}`).then(() => {
 });
 
 // Handle updates from Telegram
-app.post(`/bot${token}`, (req, res) => {
+app.post(`/bot${token}`, (req: Request, res: Response) => {
     bot.processUpdate(req.body);
     res.sendStatus(200);
 });
 
-// Add a simple GET route for the root
-app.get('/', (req, res) => {
+// Optional: GET route for the root to verify the server is running
+app.get('/', (req: Request, res: Response) => {
     res.send('Hello from Telegram Bot Server!');
+});
+
+// Error handling middleware for handling Express errors
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.error(err.stack);
+    res.status(500).send('Something broke!');
 });
 
 // Start Express server
