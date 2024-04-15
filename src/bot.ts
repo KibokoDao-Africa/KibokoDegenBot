@@ -69,6 +69,7 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
     }
 
     const data = {
+      signature_name: process.env.SIGNATURE_NAME, 
       instances: [{ interval: intervals, token: tokenIndex }],
     };
 
