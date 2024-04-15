@@ -1,15 +1,13 @@
 import dotenv from "dotenv";
 import TelegramBot, { InlineKeyboardButton } from "node-telegram-bot-api";
-import axios, { AxiosError } from "axios"; // Import AxiosError
+import axios, { AxiosError } from "axios";
 import { differenceInCalendarDays, parseISO, isValid } from "date-fns";
 
 dotenv.config();
 
 const token = process.env.TELEGRAM_BOT_TOKEN || "";
 const apiUrl = process.env.MODEL_API_URL || "";
-const bot = new TelegramBot(token, {
-    webHook: { autoOpen: false }
-});
+const bot = new TelegramBot(token, { webHook: { autoOpen: false } });
 
 type TokenMap = { [key: string]: number };
 const tokens: TokenMap = {
@@ -53,7 +51,7 @@ async function handleCallbackQuery(callbackQuery: TelegramBot.CallbackQuery) {
 
 function isValidDate(dateStr: string): boolean {
   const date = parseISO(dateStr);
-  return isValid(date) && dateStr === date.toISOString().split('T')[0];
+  return isValid(date);
 }
 
 async function processPriceRequest(chatId: number, tokenName: string, dateString: string) {
@@ -66,27 +64,22 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
       await bot.sendMessage(chatId, "Error: Date must be after January 23, 2024.");
       return;
     }
-
     const intervals = Math.floor(daysDifference / 4);
-
     const data = {
       "signature_name": process.env.SIGNATURE_NAME || "serving_default",
-      "instances": [[intervals, tokenIndex]]
+      "instances": [intervals, tokenIndex]  // Updated to be an array
     };
-
     const response = await axios.post(apiUrl, data);
     const predictions = response.data.predictions;
     const predictedPrice = predictions[predictions.length - 1];
-
     await bot.sendMessage(chatId, `Predicted closing price for ${tokenName} on ${dateString}: ${predictedPrice}`);
   } catch (error) {
     console.error(error);
     let errorMessage = "Sorry, there was an error processing your request.";
-    if (axios.isAxiosError(error)) { // Check if the error is an AxiosError
+    if (axios.isAxiosError(error)) {
       const serverResponse = error.response?.data || "No response body.";
       errorMessage += ` Details: ${serverResponse}`;
     }
-    
     await bot.sendMessage(chatId, errorMessage);
   }
 }
