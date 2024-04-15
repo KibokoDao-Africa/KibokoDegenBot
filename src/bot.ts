@@ -69,8 +69,8 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
     }
 
     const data = {
-      signature_name: process.env.SIGNATURE_NAME, 
-      instances: [{ interval: intervals, token: tokenIndex }],
+      "signature_name": process.env.SIGNATURE_NAME, 
+      "instances": [{ interval: intervals, token: tokenIndex }],
     };
 
     const response = await axios.post(apiUrl, data);
