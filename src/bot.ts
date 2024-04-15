@@ -13,7 +13,11 @@ const bot = new TelegramBot(token, {
 
 type TokenMap = { [key: string]: number };
 const tokens: TokenMap = {
-  // Tokens map as previously defined
+  'WBTC': 0, 'WETH': 1, 'USDC': 2, 'USDT': 3, 'DAI': 4, 'LINK': 5,
+  'AAVE': 6, 'STETH': 7, 'WSTETH': 8, 'ETH': 9, 'FRAX': 10, 'RETH': 11,
+  'YFI': 12, 'MIM': 13, '3CRV': 14, 'ALCX': 15, 'MKR': 16, 'STMATIC': 17,
+  'WAVAX': 18, 'UNI': 19, 'COMP': 20, 'GNO': 21, 'COW': 22, 'ALUSD': 23,
+  'SAVAX': 24, 'WMATIC': 25, 'CVX': 26, 'WOO': 27, 'TUSD': 28, 'FRXETH': 29
 };
 
 function showTokenSelection(chatId: number) {
