@@ -69,12 +69,19 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
 
     const intervals = Math.floor(daysDifference / 4);
 
-    const data = {
+    const data: {
+      signature_name: string,
+      instances: [number, number] // Array with intervals and tokenIndex
+    } = {
       "signature_name": process.env.SIGNATURE_NAME || "serving_default",
-      "instances": [[intervals, tokenIndex]]
+      "instances": [intervals, tokenIndex]
     };
 
-    const response = await axios.post(apiUrl, data);
+    const response = await axios.post(apiUrl, data, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
     const predictions = response.data.predictions;
     const predictedPrice = predictions[predictions.length - 1];
 
@@ -83,7 +90,7 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
     console.error(error);
     let errorMessage = "Sorry, there was an error processing your request.";
     if (axios.isAxiosError(error)) { // Check if the error is an AxiosError
-      const serverResponse = error.response?.data || "No response body.";
+      const serverResponse = (error as AxiosError).response?.data || "No response body.";
       errorMessage += ` Details: ${serverResponse}`;
     }
     
