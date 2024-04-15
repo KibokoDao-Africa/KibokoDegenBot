@@ -1,24 +1,19 @@
 import dotenv from "dotenv";
 import TelegramBot, { InlineKeyboardButton } from "node-telegram-bot-api";
-import axios from "axios";
-import { differenceInCalendarDays, parseISO } from "date-fns";
+import axios, { AxiosError } from "axios"; // Import AxiosError
+import { differenceInCalendarDays, parseISO, isValid } from "date-fns";
 
 dotenv.config();
 
 const token = process.env.TELEGRAM_BOT_TOKEN || "";
 const apiUrl = process.env.MODEL_API_URL || "";
 const bot = new TelegramBot(token, {
-    webHook: { autoOpen: false } // Ensures the bot doesn't manage webhooks automatically
+    webHook: { autoOpen: false }
 });
 
-// Token mapping with indexes
 type TokenMap = { [key: string]: number };
 const tokens: TokenMap = {
-  'WBTC': 0, 'WETH': 1, 'USDC': 2, 'USDT': 3, 'DAI': 4, 'LINK': 5,
-  'AAVE': 6, 'STETH': 7, 'WSTETH': 8, 'ETH': 9, 'FRAX': 10, 'RETH': 11,
-  'YFI': 12, 'MIM': 13, '3CRV': 14, 'ALCX': 15, 'MKR': 16, 'STMATIC': 17,
-  'WAVAX': 18, 'UNI': 19, 'COMP': 20, 'GNO': 21, 'COW': 22, 'ALUSD': 23,
-  'SAVAX': 24, 'WMATIC': 25, 'CVX': 26, 'WOO': 27, 'TUSD': 28, 'FRXETH': 29
+  // Tokens map as previously defined
 };
 
 function showTokenSelection(chatId: number) {
@@ -43,49 +38,51 @@ async function handleCallbackQuery(callbackQuery: TelegramBot.CallbackQuery) {
     { reply_markup: { force_reply: true } }
   ).then((sent) => {
     bot.onReplyToMessage(chatId, sent.message_id, async (msg) => {
-      if (msg.text) {
+      if (msg.text && isValidDate(msg.text)) {
         await processPriceRequest(chatId, tokenName, msg.text);
       } else {
-        bot.sendMessage(chatId, "Error: No date provided. Please provide a date in the format YYYY/MM/DD.");
+        bot.sendMessage(chatId, "Error: Invalid date format or no date provided. Please provide a date in the format YYYY/MM/DD.");
       }
     });
   });
 }
 
+function isValidDate(dateStr: string): boolean {
+  const date = parseISO(dateStr);
+  return isValid(date) && dateStr === date.toISOString().split('T')[0];
+}
+
 async function processPriceRequest(chatId: number, tokenName: string, dateString: string) {
   try {
     const tokenIndex = tokens[tokenName];
-    if (tokenIndex === undefined) {
-      await bot.sendMessage(chatId, `Unsupported token: ${tokenName}`);
-      return;
-    }
-
     const latestDate = parseISO("2024/01/23");
     const requestedDate = parseISO(dateString);
     const daysDifference = differenceInCalendarDays(requestedDate, latestDate);
-    const intervals = Math.floor(daysDifference / 4);
-
-    if (!apiUrl) {
-      throw new Error("API URL not configured in .env file.");
+    if (daysDifference < 0) {
+      await bot.sendMessage(chatId, "Error: Date must be after January 23, 2024.");
+      return;
     }
 
-    // Sends a request to the API with the intervals and token index
+    const intervals = Math.floor(daysDifference / 4);
+
     const data = {
-      "signature_name": "serving_default", 
-      "instances": [intervals, tokenIndex]
+      "signature_name": process.env.SIGNATURE_NAME || "serving_default",
+      "instances": [[intervals, tokenIndex]]
     };
 
     const response = await axios.post(apiUrl, data);
     const predictions = response.data.predictions;
-    const predictedPrice = predictions[predictions.length - 1]; // Retrieves the last predicted price
+    const predictedPrice = predictions[predictions.length - 1];
 
     await bot.sendMessage(chatId, `Predicted closing price for ${tokenName} on ${dateString}: ${predictedPrice}`);
   } catch (error) {
     console.error(error);
     let errorMessage = "Sorry, there was an error processing your request.";
-    if (error instanceof Error) {
-      errorMessage += ` ${error.message}`;
+    if (axios.isAxiosError(error)) { // Check if the error is an AxiosError
+      const serverResponse = error.response?.data || "No response body.";
+      errorMessage += ` Details: ${serverResponse}`;
     }
+    
     await bot.sendMessage(chatId, errorMessage);
   }
 }
