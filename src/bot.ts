@@ -8,9 +8,10 @@ dotenv.config();
 const token = process.env.TELEGRAM_BOT_TOKEN || "";
 const apiUrl = process.env.MODEL_API_URL || "";
 const bot = new TelegramBot(token, {
-    webHook: { autoOpen: false } // Ensure the bot doesn't try to manage webhook automatically
+    webHook: { autoOpen: false } // Ensures the bot doesn't manage webhooks automatically
 });
 
+// Token mapping with indexes
 type TokenMap = { [key: string]: number };
 const tokens: TokenMap = {
   'WBTC': 0, 'WETH': 1, 'USDC': 2, 'USDT': 3, 'DAI': 4, 'LINK': 5,
@@ -68,14 +69,15 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
       throw new Error("API URL not configured in .env file.");
     }
 
+    // Sends a request to the API with the intervals and token index
     const data = {
-      "signature_name": process.env.SIGNATURE_NAME, 
-      "instances": [{ interval: intervals, token: tokenIndex }],
+      "signature_name": "serving_default", 
+      "instances": [intervals, tokenIndex]
     };
 
     const response = await axios.post(apiUrl, data);
     const predictions = response.data.predictions;
-    const predictedPrice = predictions.length > intervals ? predictions[intervals] : "No prediction available for this date";
+    const predictedPrice = predictions[predictions.length - 1]; // Retrieves the last predicted price
 
     await bot.sendMessage(chatId, `Predicted closing price for ${tokenName} on ${dateString}: ${predictedPrice}`);
   } catch (error) {
