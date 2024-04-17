@@ -1,7 +1,7 @@
 // server.ts
 import dotenv from 'dotenv';
 import express, { Request, Response, NextFunction, Express } from 'express';
-import { bot } from './bot'; // Ensure this path matches the location of your bot script
+import { bot } from './bot.js'; // Ensure this path matches the location of your bot script
 
 dotenv.config();
 

@@ -2,30 +2,31 @@
 
 import dotenv from "dotenv";
 import TelegramBot, { CallbackQuery, Message } from "node-telegram-bot-api";
-import { Calendar } from "telegram-inline-calendar";
 import axios, { AxiosError } from "axios";
 import { differenceInCalendarDays, parseISO } from "date-fns";
+import axiosRetry from 'axios-retry';
+import { Calendar } from 'telegram-inline-calendar';  // Ensure the custom types are picked up
 
 dotenv.config();
 
 const token: string = process.env.TELEGRAM_BOT_TOKEN || "";
 const apiUrl: string = process.env.MODEL_API_URL || "";
-const webhookUrl: string = process.env.WEBHOOK_URL || ""; // Add webhook URL from environment variables
-const bot: TelegramBot = new TelegramBot(token, { webHook: true }); // Initialize with webHook parameter set to true
+const webhookUrl: string = process.env.WEBHOOK_URL || "";
+const bot: TelegramBot = new TelegramBot(token, { webHook: true });
 const calendar = new Calendar(bot, {
     date_format: "YYYY/MM/DD",
     language: "en"
 });
 
-// Set webhook
+axiosRetry(axios, { retries: 3, retryDelay: axiosRetry.exponentialDelay });
+
 bot.setWebHook(`${webhookUrl}/bot${token}`).then(() => {
     console.log('Webhook set successfully to', `${webhookUrl}/bot${token}`);
 }).catch((error) => {
     console.error('Error setting webhook: ', error);
 });
 
-type TokenMap = { [key: string]: number };
-const tokens: TokenMap = {
+const tokens: { [key: string]: number } = {
     WBTC: 0, WETH: 1, USDC: 2, USDT: 3, DAI: 4, LINK: 5,
     AAVE: 6, STETH: 7, WSTETH: 8, ETH: 9, FRAX: 10, RETH: 11,
     YFI: 12, MIM: 13, "3CRV": 14, ALCX: 15, MKR: 16, STMATIC: 17,
@@ -82,7 +83,6 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
 }
 
 bot.on("message", (msg: Message) => {
-    // Handle message logic here
     const command = msg.text;
     if (command === '/command1') {
         showTokenSelection(msg.chat.id);
@@ -99,7 +99,7 @@ bot.on("callback_query", async (query: CallbackQuery) => {
     } else {
         const dateString: string = data;
         await processPriceRequest(chatId, selectedToken, dateString);
-        selectedToken = ""; // Reset selected token after processing request
+        selectedToken = "";  // Reset selected token after processing request
     }
 });
 
