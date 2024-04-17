@@ -1,14 +1,16 @@
+// bot.ts
+
 import dotenv from "dotenv";
-import TelegramBot, { CallbackQuery } from "node-telegram-bot-api";
+import TelegramBot, { CallbackQuery, Message } from "node-telegram-bot-api";
 import { Calendar } from "telegram-inline-calendar";
 import axios, { AxiosError } from "axios";
-import { differenceInCalendarDays, parseISO, isValid } from "date-fns";
+import { differenceInCalendarDays, parseISO } from "date-fns";
 
 dotenv.config();
 
 const token: string = process.env.TELEGRAM_BOT_TOKEN || "";
 const apiUrl: string = process.env.MODEL_API_URL || "";
-const bot: TelegramBot = new TelegramBot(token, { polling: true });
+const bot: TelegramBot = new TelegramBot(token);
 const calendar = new Calendar(bot, {
     date_format: "YYYY/MM/DD",
     language: "en"
@@ -71,8 +73,13 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
     }
 }
 
-bot.onText(/\/command1/, (msg) => {
-    showTokenSelection(msg.chat.id);
+// Emulate the functionality of bot.onText(/\/command1/, (msg) => { showTokenSelection(msg.chat.id); });
+bot.on("message", async (msg: Message) => {
+    const chatId: number = msg.chat.id;
+    const text: string = msg.text || "";
+    if (text === '/command1') {
+        showTokenSelection(chatId);
+    }
 });
 
 bot.on("callback_query", async (query: CallbackQuery) => {
