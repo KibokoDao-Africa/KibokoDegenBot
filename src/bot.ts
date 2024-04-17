@@ -44,6 +44,11 @@ function showTokenSelection(chatId: number): void {
 async function processPriceRequest(chatId: number, tokenName: string, dateString: string): Promise<void> {
   try {
       const tokenIndex = tokens[tokenName];
+      if (tokenIndex === undefined) {
+          await bot.sendMessage(chatId, "Error: Invalid token name provided.");
+          return;
+      }
+
       const latestDate = parseISO("2024/01/23");
       const requestedDate = parseISO(dateString);
       const daysDifference = differenceInCalendarDays(requestedDate, latestDate);
@@ -52,12 +57,18 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
           return;
       }
 
-      // Ensure intervals are calculated correctly and wrapped in an array if necessary
       const intervals = Math.floor(daysDifference / 4);
+      if (intervals < 0) {
+          await bot.sendMessage(chatId, "Error: Invalid intervals calculated.");
+          return;
+      }
+
       const data = {
           "signature_name": process.env.SIGNATURE_NAME || "serving_default",
-          "instances": [[intervals, tokenIndex]]  // Wrap in another array if the server expects it this way
+          "instances": [[intervals, tokenIndex]]  // Ensuring both values are in the correct format
       };
+
+      console.log("Sending data to model:", JSON.stringify(data));  // Logging the data sent to model
 
       const response = await axios.post(apiUrl, data, {
           headers: {
@@ -73,20 +84,18 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
       let errorMessage = "Sorry, there was an error processing your request.";
 
       if (axios.isAxiosError(error)) {
-          // Handle axios errors
           const serverResponse = error.response ? JSON.stringify(error.response.data) : "No response body.";
           errorMessage += ` Details: ${serverResponse}`;
       } else if (error instanceof Error) {
-          // Handle generic errors
           errorMessage += ` Error: ${error.message}`;
       } else {
-          // Handle cases where the error is not an instance of Error
           errorMessage += ` Some unknown error occurred.`;
       }
 
       await bot.sendMessage(chatId, errorMessage);
   }
 }
+
 
 bot.on("message", (msg: Message) => {
     const command = msg.text;
