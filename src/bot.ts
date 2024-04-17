@@ -10,10 +10,18 @@ dotenv.config();
 
 const token: string = process.env.TELEGRAM_BOT_TOKEN || "";
 const apiUrl: string = process.env.MODEL_API_URL || "";
-const bot: TelegramBot = new TelegramBot(token);
+const webhookUrl: string = process.env.WEBHOOK_URL || ""; // Add webhook URL from environment variables
+const bot: TelegramBot = new TelegramBot(token, { webHook: true }); // Initialize with webHook parameter set to true
 const calendar = new Calendar(bot, {
     date_format: "YYYY/MM/DD",
     language: "en"
+});
+
+// Set webhook
+bot.setWebHook(`${webhookUrl}/bot${token}`).then(() => {
+    console.log('Webhook set successfully to', `${webhookUrl}/bot${token}`);
+}).catch((error) => {
+    console.error('Error setting webhook: ', error);
 });
 
 type TokenMap = { [key: string]: number };
@@ -73,12 +81,11 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
     }
 }
 
-// Emulate the functionality of bot.onText(/\/command1/, (msg) => { showTokenSelection(msg.chat.id); });
-bot.on("message", async (msg: Message) => {
-    const chatId: number = msg.chat.id;
-    const text: string = msg.text || "";
-    if (text === '/command1') {
-        showTokenSelection(chatId);
+bot.on("message", (msg: Message) => {
+    // Handle message logic here
+    const command = msg.text;
+    if (command === '/command1') {
+        showTokenSelection(msg.chat.id);
     }
 });
 
