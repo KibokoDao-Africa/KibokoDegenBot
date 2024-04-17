@@ -43,7 +43,8 @@ function showTokenSelection(chatId: number): void {
 
 async function processPriceRequest(chatId: number, tokenName: string, dateString: string): Promise<void> {
   try {
-      const tokenIndex = tokens[tokenName];
+      // Ensuring tokenIndex is a number
+      const tokenIndex: number | undefined = tokens[tokenName];
       if (tokenIndex === undefined) {
           await bot.sendMessage(chatId, "Error: Invalid token name provided.");
           return;
@@ -57,7 +58,8 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
           return;
       }
 
-      const intervals = Math.floor(daysDifference / 4);
+      // Ensuring intervals is a number
+      const intervals: number = Math.floor(daysDifference / 4);
       if (intervals < 0) {
           await bot.sendMessage(chatId, "Error: Invalid intervals calculated.");
           return;
@@ -65,7 +67,7 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
 
       const data = {
           "signature_name": process.env.SIGNATURE_NAME || "serving_default",
-          "instances": [[intervals, tokenIndex]]  // Ensuring both values are in the correct format
+          "instances": [[intervals, tokenIndex]]
       };
 
       console.log("Sending data to model:", JSON.stringify(data));  // Logging the data sent to model
@@ -95,6 +97,7 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
       await bot.sendMessage(chatId, errorMessage);
   }
 }
+
 
 
 bot.on("message", (msg: Message) => {
