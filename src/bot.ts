@@ -54,11 +54,11 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
           return;
       }
 
+      // Ensure intervals are calculated correctly and wrapped in an array if necessary
       const intervals = Math.floor(daysDifference / 4);
-
       const data = {
           "signature_name": process.env.SIGNATURE_NAME || "serving_default",
-          "instances": [intervals, tokenIndex]
+          "instances": [[intervals, tokenIndex]]  // Wrap in another array if the server expects it this way
       };
 
       const response = await axios.post(apiUrl, data, {
@@ -89,6 +89,7 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
       await bot.sendMessage(chatId, errorMessage);
   }
 }
+
 
 
 
