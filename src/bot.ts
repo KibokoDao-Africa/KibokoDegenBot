@@ -1,5 +1,3 @@
-// bot.ts
-
 import dotenv from "dotenv";
 import TelegramBot, { CallbackQuery, Message } from "node-telegram-bot-api";
 import axios, { AxiosError } from "axios";
@@ -89,9 +87,6 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
       await bot.sendMessage(chatId, errorMessage);
   }
 }
-
-
-
 
 bot.on("message", (msg: Message) => {
     const command = msg.text;
