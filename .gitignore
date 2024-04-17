@@ -153,6 +153,6 @@ dist
 # .pnp.*
 
 # TypeScript Declaration Files
-*.d.ts
+
 
 # End of https://www.toptal.com/developers/gitignore/api/node,yarn
