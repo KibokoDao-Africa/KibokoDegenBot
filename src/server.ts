@@ -34,4 +34,4 @@ app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
 
-export { app }; // Exporting app for testing purposes
+// export { app }; // Exporting app for testing purposes
