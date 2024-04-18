@@ -3,7 +3,7 @@ import TelegramBot, { CallbackQuery, Message } from "node-telegram-bot-api";
 import axios, { AxiosError } from "axios";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import axiosRetry from 'axios-retry';
-import { Calendar } from 'telegram-inline-calendar';  // Ensure the custom types are picked up
+import { Calendar } from 'telegram-inline-calendar';
 
 dotenv.config();
 
@@ -33,6 +33,7 @@ const tokens: { [key: string]: number } = {
 };
 
 let selectedToken: string = "";
+let selectedDate: string = "";
 
 function showTokenSelection(chatId: number): void {
     const keyboard = Object.keys(tokens).map(token => [{ text: token, callback_data: token }]);
@@ -42,51 +43,48 @@ function showTokenSelection(chatId: number): void {
 }
 
 async function processPriceRequest(chatId: number, tokenName: string, dateString: string): Promise<void> {
-  try {
-      const tokenIndex = tokens[tokenName];
-      if (tokenIndex === undefined) {
-          await bot.sendMessage(chatId, "Error: Invalid token name provided.");
-          return;
-      }
+    try {
+        const tokenIndex = tokens[tokenName];
+        if (tokenIndex === undefined) {
+            await bot.sendMessage(chatId, "Error: Invalid token name provided.");
+            return;
+        }
 
-      const latestDate = parseISO("2024/01/23");
-      const requestedDate = parseISO(dateString);
-      const daysDifference = differenceInCalendarDays(requestedDate, latestDate);
-      if (daysDifference < 0) {
-          await bot.sendMessage(chatId, "Error: Date must be after January 23, 2024.");
-          return;
-      }
+        const latestDate = parseISO("2024/01/23");
+        const requestedDate = parseISO(dateString);
+        const daysDifference = differenceInCalendarDays(requestedDate, latestDate);
+        if (daysDifference < 0) {
+            await bot.sendMessage(chatId, "Error: Date must be after January 23, 2024.");
+            return;
+        }
 
-      // Convert intervals to a float explicitly
-      const intervals = parseFloat((daysDifference / 4).toFixed(2));  // Keep two decimal places
+        const intervals = parseFloat((Math.max(0, daysDifference) / 4).toFixed(2));
 
-      const data = {
-          "signature_name": process.env.SIGNATURE_NAME || "serving_default",
-          "instances": [[intervals, tokenIndex]]
-      };
+        const data = {
+            "signature_name": process.env.SIGNATURE_NAME || "serving_default",
+            "instances": [[intervals, tokenIndex]]
+        };
 
-      console.log("Sending data to model:", JSON.stringify(data));
+        const response = await axios.post(apiUrl, data, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        const predictions = response.data.predictions;
+        const predictedPrice = predictions[predictions.length - 1];
 
-      const response = await axios.post(apiUrl, data, {
-          headers: {
-              'Content-Type': 'application/json'
-          }
-      });
-      const predictions = response.data.predictions;
-      const predictedPrice = predictions[predictions.length - 1];
+        await bot.sendMessage(chatId, `Predicted closing price for ${tokenName} on ${dateString}: ${predictedPrice}`);
+    } catch (error) {
+        console.error(error);
+        let errorMessage = "Sorry, there was an error processing your request.";
+        if (axios.isAxiosError(error) && error.response) {
+            errorMessage += ` Details: ${JSON.stringify(error.response.data)}`;
+        } else {
+            errorMessage += ` Some unknown error occurred.`;
+        }
 
-      await bot.sendMessage(chatId, `Predicted closing price for ${tokenName} on ${dateString}: ${predictedPrice}`);
-  } catch (error) {
-      console.error(error);
-      let errorMessage = "Sorry, there was an error processing your request.";
-      if (axios.isAxiosError(error) && error.response) {
-          errorMessage += ` Details: ${JSON.stringify(error.response.data)}`;
-      } else {
-          errorMessage += ` Some unknown error occurred.`;
-      }
-
-      await bot.sendMessage(chatId, errorMessage);
-  }
+        await bot.sendMessage(chatId, errorMessage);
+    }
 }
 
 bot.on("message", (msg: Message) => {
@@ -99,14 +97,15 @@ bot.on("message", (msg: Message) => {
 bot.on("callback_query", async (query: CallbackQuery) => {
     const chatId: number = query.message?.chat.id || 0;
     const data: string = query.data || "";
-    
+
     if (!selectedToken) {
         selectedToken = data;
         calendar.startNavCalendar(query.message);
-    } else {
-        const dateString: string = data;
-        await processPriceRequest(chatId, selectedToken, dateString);
+    } else if (selectedToken && !selectedDate) {
+        selectedDate = data;
+        await processPriceRequest(chatId, selectedToken, selectedDate);
         selectedToken = "";  // Reset selected token after processing request
+        selectedDate = "";   // Reset selected date after processing request
     }
 });
 
