@@ -1,9 +1,8 @@
 // server.ts
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import express, { Request, Response, NextFunction, Express } from 'express';
-import { bot } from './bot.js'; // Ensure this path matches the location of your bot script
+import { bot } from './bot'; // Ensure this path matches the location of your bot script
 
-dotenv.config();
 
 const app: Express = express();
 const port = process.env.PORT || 3000; // Handles the port setting for Railway or other platforms

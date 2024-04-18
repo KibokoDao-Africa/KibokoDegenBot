@@ -10,6 +10,7 @@ declare module 'telegram-inline-calendar' {
     }
 
     export class Calendar {
+        [x: string]: any;
         constructor(bot: TelegramBot, options: CalendarOptions);
         startNavCalendar(msg: any): void;
         clickButtonCalendar(query: any): string | -1;
