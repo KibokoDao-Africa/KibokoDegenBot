@@ -37,10 +37,12 @@ let selectedToken: string = "";
 let selectedDate: string = "";
 
 function showTokenSelection(chatId: number): void {
-    const keyboard = Object.keys(tokens).map(token => [{ text: token, callback_data: 'token_' + token }]);
-    bot.sendMessage(chatId, "Select a token:", {
-        reply_markup: { inline_keyboard: keyboard },
-    });
+  const keyboard = Object.keys(tokens).map(token => {
+      return [{ text: token, callback_data: `token:${tokens[token]}` }]; // Use token index directly from tokens dictionary
+  });
+  bot.sendMessage(chatId, "Select a token:", {
+      reply_markup: { inline_keyboard: keyboard },
+  });
 }
 
 async function processPriceRequest(chatId: number, tokenName: string, dateString: string): Promise<void> {
@@ -122,28 +124,35 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
 }
 
 bot.on("message", (msg: Message) => {
-    if (msg.text === '/command1') {
+  const command =msg.text;
+    if (command === '/command1') {
         showTokenSelection(msg.chat.id);
     }
 });
 
 bot.on("callback_query", async (query: CallbackQuery) => {
-    const chatId: number = query.message?.chat.id || 0;
-    const data: string = query.data || "";
+  const chatId: number = query.message?.chat.id || 0;
+  const data: string = query.data || "";
 
-    if (data.startsWith('token_')) {
-        selectedToken = data.substring(6);  // Remove 'token_' prefix
-        calendar.startNavCalendar(query.message); // Start calendar after token selection
-    } else if (/^\d{4}-\d{2}-\d{2}$/.test(data)) {
-        selectedDate = data;
-        if (selectedToken) {
-            await processPriceRequest(chatId, selectedToken, selectedDate);
-            selectedToken = "";  // Reset after processing
-            selectedDate = "";   // Reset after processing
-        }
-    } else {
-        await bot.sendMessage(chatId, "Error: Invalid date format received. Please use YYYY-MM-DD.");
-    }
+  if (data.startsWith('token:')) {
+      // Extract token index after 'token:'
+      selectedToken = data.split(':')[1];
+      console.log(`Token selected: ${selectedToken}, showing calendar.`);
+      calendar.startNavCalendar(query.message); // Start calendar after token selection
+  } else if (data.startsWith('date:')) {
+      selectedDate = data.split(':')[1];
+      console.log(`Date selected: ${selectedDate}, processing price request.`);
+      if (selectedToken) {
+          await processPriceRequest(chatId, selectedToken, selectedDate);
+          selectedToken = "";  // Reset after processing
+          selectedDate = "";   // Reset after processing
+      } else {
+          console.error("Token not set when date was selected");
+          await bot.sendMessage(chatId, "Error: Token not selected. Please start over.");
+      }
+  } else {
+      await bot.sendMessage(chatId, "Error: Invalid input received. Please start over.");
+  }
 });
 
 export { bot };
