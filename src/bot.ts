@@ -43,8 +43,7 @@ function showTokenSelection(chatId: number): void {
 
 async function processPriceRequest(chatId: number, tokenName: string, dateString: string): Promise<void> {
   try {
-      // Ensuring tokenIndex is a number
-      const tokenIndex: number | undefined = tokens[tokenName];
+      const tokenIndex = tokens[tokenName];
       if (tokenIndex === undefined) {
           await bot.sendMessage(chatId, "Error: Invalid token name provided.");
           return;
@@ -58,19 +57,15 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
           return;
       }
 
-      // Ensuring intervals is a number
-      const intervals: number = Math.floor(daysDifference / 4);
-      if (intervals < 0) {
-          await bot.sendMessage(chatId, "Error: Invalid intervals calculated.");
-          return;
-      }
+      // Convert intervals to a float explicitly
+      const intervals = parseFloat((daysDifference / 4).toFixed(2));  // Keep two decimal places
 
       const data = {
           "signature_name": process.env.SIGNATURE_NAME || "serving_default",
           "instances": [[intervals, tokenIndex]]
       };
 
-      console.log("Sending data to model:", JSON.stringify(data));  // Logging the data sent to model
+      console.log("Sending data to model:", JSON.stringify(data));
 
       const response = await axios.post(apiUrl, data, {
           headers: {
@@ -84,12 +79,8 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
   } catch (error) {
       console.error(error);
       let errorMessage = "Sorry, there was an error processing your request.";
-
-      if (axios.isAxiosError(error)) {
-          const serverResponse = error.response ? JSON.stringify(error.response.data) : "No response body.";
-          errorMessage += ` Details: ${serverResponse}`;
-      } else if (error instanceof Error) {
-          errorMessage += ` Error: ${error.message}`;
+      if (axios.isAxiosError(error) && error.response) {
+          errorMessage += ` Details: ${JSON.stringify(error.response.data)}`;
       } else {
           errorMessage += ` Some unknown error occurred.`;
       }
@@ -97,8 +88,6 @@ async function processPriceRequest(chatId: number, tokenName: string, dateString
       await bot.sendMessage(chatId, errorMessage);
   }
 }
-
-
 
 bot.on("message", (msg: Message) => {
     const command = msg.text;
