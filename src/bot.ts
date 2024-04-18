@@ -43,48 +43,54 @@ function showTokenSelection(chatId: number): void {
 }
 
 async function processPriceRequest(chatId: number, tokenName: string, dateString: string): Promise<void> {
-    try {
-        const tokenIndex = tokens[tokenName];
-        if (tokenIndex === undefined) {
-            await bot.sendMessage(chatId, "Error: Invalid token name provided.");
-            return;
-        }
+  try {
+      const tokenIndex = tokens[tokenName];
+      if (tokenIndex === undefined) {
+          await bot.sendMessage(chatId, "Error: Invalid token name provided.");
+          return;
+      }
 
-        const latestDate = parseISO("2024/01/23");
-        const requestedDate = parseISO(dateString);
-        const daysDifference = differenceInCalendarDays(requestedDate, latestDate);
-        if (daysDifference < 0) {
-            await bot.sendMessage(chatId, "Error: Date must be after January 23, 2024.");
-            return;
-        }
+      const latestDate = parseISO("2024/01/23");
+      const requestedDate = parseISO(dateString);
+      const daysDifference = differenceInCalendarDays(requestedDate, latestDate);
+      if (daysDifference < 0) {
+          await bot.sendMessage(chatId, "Error: Date must be after January 23, 2024.");
+          return;
+      }
 
-        const intervals = parseFloat((Math.max(0, daysDifference) / 4).toFixed(2));
+      const intervals = parseFloat((Math.max(0, daysDifference) / 4).toFixed(2));
 
-        const data = {
-            "signature_name": process.env.SIGNATURE_NAME || "serving_default",
-            "instances": [[intervals, tokenIndex]]
-        };
+      // Adjusting the data format to match the expected API input
+      const data = {
+          "signature_name": process.env.SIGNATURE_NAME || "serving_default",
+          // Using the correct array structure as demonstrated by your successful cURL request
+          "instances": [intervals, tokenIndex]
+      };
 
-        const response = await axios.post(apiUrl, data, {
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        const predictions = response.data.predictions;
-        const predictedPrice = predictions[predictions.length - 1];
+      console.log("Sending data to model:", JSON.stringify(data));
 
-        await bot.sendMessage(chatId, `Predicted closing price for ${tokenName} on ${dateString}: ${predictedPrice}`);
-    } catch (error) {
-        console.error(error);
-        let errorMessage = "Sorry, there was an error processing your request.";
-        if (axios.isAxiosError(error) && error.response) {
-            errorMessage += ` Details: ${JSON.stringify(error.response.data)}`;
-        } else {
-            errorMessage += ` Some unknown error occurred.`;
-        }
+      const response = await axios.post(apiUrl, data, {
+          headers: {
+              'Content-Type': 'application/json'
+          }
+      });
+      
+      const predictions = response.data.predictions;
+      const predictedPrice = predictions[predictions.length - 1];
 
-        await bot.sendMessage(chatId, errorMessage);
-    }
+      await bot.sendMessage(chatId, `Predicted closing price for ${tokenName} on ${dateString}: ${predictedPrice}`);
+  } catch (error) {
+      console.error(error);
+      let errorMessage = "Sorry, there was an error processing your request.";
+      if (axios.isAxiosError(error) && error.response) {
+          // Ensuring the error message is readable and not an object
+          errorMessage += ` Details: ${JSON.stringify(error.response.data, null, 2)}`;
+      } else {
+          errorMessage += ` Some unknown error occurred.`;
+      }
+
+      await bot.sendMessage(chatId, errorMessage);
+  }
 }
 
 bot.on("message", (msg: Message) => {
