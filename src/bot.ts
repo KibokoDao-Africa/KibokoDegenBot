@@ -6,7 +6,7 @@ const Calendar = require("telegram-inline-calendar");
 
 const token: string = process.env.TELEGRAM_BOT_TOKEN || "";
 const MODEL_API_URL = process.env.MODEL_API_URL || "";
-const webhookUrl: string = process.env.WEBHOOK_URL || "";
+const webhookUrl: string = process.env.PREVIOUS_WEBHOOK || "";
 const bot = new TelegramBot(token, { webHook: true });
 const calendar = new Calendar(bot, {
   date_format: "YYYY-MM-DD",
