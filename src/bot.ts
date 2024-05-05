@@ -37,7 +37,7 @@ const TOKENS: Record<string, number> = {
   RETH: 11,
   YFI: 12,
   MIM: 13,
-  "3CRV": 14,
+  CRV: 14,
   ALCX: 15,
   MKR: 16,
   STMATIC: 17,
