@@ -60,6 +60,7 @@ type ChatId = number;
 type Payload = {
   tokenName: string | null;
   date: string | null;
+
 };
 
 let inMemory: Record<ChatId, Payload> = {};
@@ -133,7 +134,7 @@ async function processPriceRequest(
     // Prepare data for the API request
     let body = {
       signature_name: "serving_default",
-      instances: [intervals, tokenId], // Adjusted as per requirement
+      instances: [intervals, tokenId,3], // Adjusted as per requirement
     };
 
     console.log("Sending data to model:", JSON.stringify(body));
