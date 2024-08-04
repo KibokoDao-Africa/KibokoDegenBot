@@ -60,7 +60,7 @@ type ChatId = number;
 type Payload = {
   tokenName: string | null;
   date: string | null;
-
+  priceType: number | null;
 };
 
 let inMemory: Record<ChatId, Payload> = {};
@@ -74,10 +74,23 @@ function showTokenSelection(chatId: number): void {
   });
 }
 
+function showPriceTypeSelection(chatId: number): void {
+  const keyboard = [
+    [{ text: "Open", callback_data: `priceType:0` }],
+    [{ text: "High", callback_data: `priceType:1` }],
+    [{ text: "Low", callback_data: `priceType:2` }],
+    [{ text: "Close", callback_data: `priceType:3` }],
+  ];
+  bot.sendMessage(chatId, "Select price type:", {
+    reply_markup: { inline_keyboard: keyboard },
+  });
+}
+
 async function processPriceRequest(
   chatId: number,
   tokenName: string,
-  dateString: string
+  dateString: string,
+  priceType: number
 ): Promise<void> {
   try {
     // Validate and parse dates
@@ -125,7 +138,7 @@ async function processPriceRequest(
 
     let tokenId = TOKENS[tokenName];
 
-    if (!tokenId) {
+    if (!tokenId && tokenId !== 0) {
       console.error("Invalid token name:", tokenName);
       await bot.sendMessage(chatId, "Error: Invalid token name received.");
       return;
@@ -134,7 +147,7 @@ async function processPriceRequest(
     // Prepare data for the API request
     let body = {
       signature_name: "serving_default",
-      instances: [intervals, tokenId,3], // Adjusted as per requirement
+      instances: [intervals, tokenId, priceType], // Adjusted as per requirement
     };
 
     console.log("Sending data to model:", JSON.stringify(body));
@@ -163,30 +176,19 @@ async function processPriceRequest(
 
     await bot.sendMessage(
       chatId,
-      `Predicted closing price for ${tokenName} on ${dateString}: ${predictedPrice}`
+      `Predicted ${["open", "high", "low", "close"][priceType]} price for ${tokenName} on ${dateString}: ${predictedPrice}`
     );
   } catch (error: any) {
     console.error("Error during price request:");
     let errorMessage = "Sorry, there was an error processing your request.";
-    // if (axios.isAxiosError(error) && error.response) {
-    //     errorMessage += ` Details: ${JSON.stringify(error.response.data, null, 2)}`;
-    // } else {
-    //     errorMessage += ` Some unknown error occurred.`;
-    // }
-
+    
     if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
       console.log(error.response.data);
       console.log(error.response.status);
       console.log(error.response.headers);
     } else if (error.request) {
-      // The request was made but no response was received
-      // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
-      // http.ClientRequest in node.js
       console.log(error.request);
     } else {
-      // Something happened in setting up the request that triggered an Error
       console.log("Error", error.message);
     }
     console.log(error.config);
@@ -213,11 +215,24 @@ bot.on("callback_query", async (query) => {
     // Extract token index after 'token:'
     let tokenName = data.split(":")[1].trim();
 
-    console.log(`Token selected: ${tokenName}, showing calendar.`);
+    console.log(`Token selected: ${tokenName}, showing price type selection.`);
 
-    inMemory[chatId] = { tokenName, date: null };
+    inMemory[chatId] = { tokenName, date: null, priceType: null };
 
-    // Start calendar after token selection
+    // Show price type selection after token selection
+    showPriceTypeSelection(chatId);
+
+    return;
+  }
+
+  if (data?.startsWith("priceType:")) {
+    let priceType = parseInt(data.split(":")[1].trim());
+
+    console.log(`Price type selected: ${priceType}, showing calendar.`);
+
+    inMemory[chatId] = { ...inMemory[chatId], priceType };
+
+    // Start calendar after price type selection
     calendar.startNavCalendar(message);
 
     return;
@@ -234,9 +249,9 @@ bot.on("callback_query", async (query) => {
 
     inMemory[chatId] = { ...inMemory[chatId], date: selectedDate };
 
-    let { tokenName, date } = inMemory[chatId];
+    let { tokenName, date, priceType } = inMemory[chatId];
 
-    // validate token and date
+    // validate token, date, and price type
     if (!tokenName) {
       console.error("Token not set when date was selected");
       let response = await bot.sendMessage(
@@ -264,14 +279,28 @@ bot.on("callback_query", async (query) => {
       return;
     }
 
+    if (priceType === null) {
+      console.error("Price type not set when date was selected");
+      let response = bot.sendMessage(
+        chatId,
+        "Error: Price type not selected. Please start over."
+      );
+
+      if (response) {
+        console.log("Response from bot.sendMessage", response);
+      }
+
+      return;
+    }
+
     console.log(`Date selected: ${date}, processing price request.`);
 
-    let response = await processPriceRequest(chatId, tokenName, date);
+    let response = await processPriceRequest(chatId, tokenName, date, priceType);
 
     console.log("Response from processPriceRequest", response);
 
     // Reset after processing
-    inMemory[chatId] = { tokenName: null, date: null };
+    inMemory[chatId] = { tokenName: null, date: null, priceType: null };
 
     return;
   }
