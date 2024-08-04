@@ -200,7 +200,7 @@ bot.on("message", (msg: Message) => {
           [
             {
               text: "Open Inline Web",
-              url: "https://your-website.com",
+              url: "https://kibokodegensite.netlify.app",
             },
           ],
         ],
