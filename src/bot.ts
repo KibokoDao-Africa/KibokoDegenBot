@@ -65,23 +65,11 @@ type Payload = {
 
 let inMemory: Record<ChatId, Payload> = {};
 
-function showTokenSelection(chatId: number): void {
+function showTokenSelection(chatId: number, priceType: number): void {
   const keyboard = Object.keys(TOKENS).map((token) => {
-    return [{ text: token, callback_data: `token:${token}` }];
+    return [{ text: token, callback_data: `token:${token}:${priceType}` }];
   });
   bot.sendMessage(chatId, "Select a token:", {
-    reply_markup: { inline_keyboard: keyboard },
-  });
-}
-
-function showPriceTypeSelection(chatId: number): void {
-  const keyboard = [
-    [{ text: "Open", callback_data: `priceType:0` }],
-    [{ text: "High", callback_data: `priceType:1` }],
-    [{ text: "Low", callback_data: `priceType:2` }],
-    [{ text: "Close", callback_data: `priceType:3` }],
-  ];
-  bot.sendMessage(chatId, "Select price type:", {
     reply_markup: { inline_keyboard: keyboard },
   });
 }
@@ -193,16 +181,15 @@ async function processPriceRequest(
 
 bot.on("message", (msg: Message) => {
   const command = msg.text;
-  if (command === "/button") {
-    bot.sendMessage(msg.chat.id, "Click the button below to proceed:", {
+  if (command === "/start") {
+    bot.sendMessage(msg.chat.id, "Welcome! Select a command to proceed:", {
       reply_markup: {
         inline_keyboard: [
-          [
-            {
-              text: "Open Inline Web",
-              url: "https://kibokodegensite.netlify.app",
-            },
-          ],
+          [{ text: "Subscribe", callback_data: "subscribe" }],
+          [{ text: "Closing Price", callback_data: "priceType:3" }],
+          [{ text: "Opening Price", callback_data: "priceType:0" }],
+          [{ text: "Highest Price", callback_data: "priceType:1" }],
+          [{ text: "Lowest Price", callback_data: "priceType:2" }],
         ],
       },
     });
@@ -216,24 +203,39 @@ bot.on("callback_query", async (query) => {
 
   console.log("Callback data received:", data);
 
-  if (data?.startsWith("token:")) {
-    let tokenName = data.split(":")[1].trim();
-
-    console.log(`Token selected: ${tokenName}, showing price type selection.`);
-
-    inMemory[chatId] = { tokenName, date: null, priceType: null };
-
-    showPriceTypeSelection(chatId);
-
+  if (data === "subscribe") {
+    bot.sendMessage(chatId, "Click the button below to open the website:", {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "Open Inline Web",
+              url: "https://kibokodegensite.netlify.app",
+            },
+          ],
+        ],
+      },
+    });
     return;
   }
 
   if (data?.startsWith("priceType:")) {
     let priceType = parseInt(data.split(":")[1].trim());
 
-    console.log(`Price type selected: ${priceType}, showing calendar.`);
+    console.log(`Price type selected: ${priceType}, showing token selection.`);
 
-    inMemory[chatId] = { ...inMemory[chatId], priceType };
+    showTokenSelection(chatId, priceType);
+
+    return;
+  }
+
+  if (data?.startsWith("token:")) {
+    let [_, tokenName, priceType] = data.split(":");
+    priceType = parseInt(priceType.trim());
+
+    console.log(`Token selected: ${tokenName}, showing calendar.`);
+
+    inMemory[chatId] = { tokenName, date: null, priceType };
 
     calendar.startNavCalendar(message);
 
