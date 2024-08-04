@@ -67,7 +67,7 @@ let inMemory: Record<ChatId, Payload> = {};
 
 function showTokenSelection(chatId: number): void {
   const keyboard = Object.keys(TOKENS).map((token) => {
-    return [{ text: token, callback_data: `token:${token}` }]; // Use token index directly from tokens dictionary
+    return [{ text: token, callback_data: `token:${token}` }];
   });
   bot.sendMessage(chatId, "Select a token:", {
     reply_markup: { inline_keyboard: keyboard },
@@ -93,8 +93,7 @@ async function processPriceRequest(
   priceType: number
 ): Promise<void> {
   try {
-    // Validate and parse dates
-    const latestDateString = "2024-01-23"; // This should match the expected date format
+    const latestDateString = "2024-01-23";
     const latestDate = parseISO(latestDateString);
     console.log("Latest date object:", latestDate);
 
@@ -110,7 +109,6 @@ async function processPriceRequest(
     const requestedDate = parseISO(dateString);
     console.log("Requested date object:", requestedDate);
 
-    // Calculate the difference in calendar days
     const daysDifference = differenceInCalendarDays(requestedDate, latestDate);
     console.log("Days difference:", daysDifference);
     if (daysDifference < 0) {
@@ -121,7 +119,6 @@ async function processPriceRequest(
       return;
     }
 
-    // Calculate intervals, ensure it's a number, and log the result
     const intervals = Math.max(0, daysDifference) / 4;
     console.log("Logging the interval here:", intervals);
     if (isNaN(intervals)) {
@@ -144,15 +141,13 @@ async function processPriceRequest(
       return;
     }
 
-    // Prepare data for the API request
     let body = {
       signature_name: "serving_default",
-      instances: [intervals, tokenId, priceType], // Adjusted as per requirement
+      instances: [intervals, tokenId, priceType],
     };
 
     console.log("Sending data to model:", JSON.stringify(body));
 
-    // Send request to the API
     let { data } = await axios({
       method: "POST",
       url: MODEL_API_URL,
@@ -164,7 +159,6 @@ async function processPriceRequest(
 
     console.log("Response from the model:", data);
 
-    // Extract predictions and send the result
     let { predictions } = data;
     let predictedPrice = predictions
       ? predictions[predictions.length - 1]
@@ -181,7 +175,7 @@ async function processPriceRequest(
   } catch (error: any) {
     console.error("Error during price request:");
     let errorMessage = "Sorry, there was an error processing your request.";
-    
+
     if (error.response) {
       console.log(error.response.data);
       console.log(error.response.status);
@@ -199,8 +193,19 @@ async function processPriceRequest(
 
 bot.on("message", (msg: Message) => {
   const command = msg.text;
-  if (command === "/command1") {
-    showTokenSelection(msg.chat.id);
+  if (command === "/button") {
+    bot.sendMessage(msg.chat.id, "Click the button below to proceed:", {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "Open Inline Web",
+              url: "https://your-website.com",
+            },
+          ],
+        ],
+      },
+    });
   }
 });
 
@@ -212,14 +217,12 @@ bot.on("callback_query", async (query) => {
   console.log("Callback data received:", data);
 
   if (data?.startsWith("token:")) {
-    // Extract token index after 'token:'
     let tokenName = data.split(":")[1].trim();
 
     console.log(`Token selected: ${tokenName}, showing price type selection.`);
 
     inMemory[chatId] = { tokenName, date: null, priceType: null };
 
-    // Show price type selection after token selection
     showPriceTypeSelection(chatId);
 
     return;
@@ -232,7 +235,6 @@ bot.on("callback_query", async (query) => {
 
     inMemory[chatId] = { ...inMemory[chatId], priceType };
 
-    // Start calendar after price type selection
     calendar.startNavCalendar(message);
 
     return;
@@ -251,7 +253,6 @@ bot.on("callback_query", async (query) => {
 
     let { tokenName, date, priceType } = inMemory[chatId];
 
-    // validate token, date, and price type
     if (!tokenName) {
       console.error("Token not set when date was selected");
       let response = await bot.sendMessage(
@@ -299,7 +300,6 @@ bot.on("callback_query", async (query) => {
 
     console.log("Response from processPriceRequest", response);
 
-    // Reset after processing
     inMemory[chatId] = { tokenName: null, date: null, priceType: null };
 
     return;
