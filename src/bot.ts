@@ -6,7 +6,7 @@ const Calendar = require("telegram-inline-calendar");
 
 const token: string = process.env.TELEGRAM_BOT_TOKEN || "";
 const MODEL_API_URL = process.env.MODEL_API_URL || "";
-const webhookUrl: string = process.env.PREVIOUS_WEBHOOK || "";
+const webhookUrl: string = process.env.WEBHOOK_URL || "";
 const bot = new TelegramBot(token, { webHook: true });
 const calendar = new Calendar(bot, {
   date_format: "YYYY-MM-DD",
@@ -123,7 +123,7 @@ async function processPriceRequest(
 
     let tokenId = TOKENS[tokenName];
 
-    if (!tokenId && tokenId !== 0) {
+    if (tokenId === undefined) {
       console.error("Invalid token name:", tokenName);
       await bot.sendMessage(chatId, "Error: Invalid token name received.");
       return;
@@ -148,9 +148,7 @@ async function processPriceRequest(
     console.log("Response from the model:", data);
 
     let { predictions } = data;
-    let predictedPrice = predictions
-      ? predictions[predictions.length - 1]
-      : null;
+    let predictedPrice = predictions ? predictions[predictions.length - 1] : null;
 
     if (!predictedPrice) {
       throw new Error("No predictions returned from the model.");
@@ -181,18 +179,30 @@ async function processPriceRequest(
 
 bot.on("message", (msg: Message) => {
   const command = msg.text;
+  console.log(command);
   if (command === "/start") {
-    bot.sendMessage(msg.chat.id, "Welcome! Select a command to proceed:", {
+    bot.sendMessage(msg.chat.id, "Welcome! Use the following commands to interact with the bot:");
+  } else if (command === "/command1") {
+    bot.sendMessage(msg.chat.id, "Click the button below to open the website:", {
       reply_markup: {
         inline_keyboard: [
-          [{ text: "Subscribe", callback_data: "subscribe" }],
-          [{ text: "Closing Price", callback_data: "priceType:3" }],
-          [{ text: "Opening Price", callback_data: "priceType:0" }],
-          [{ text: "Highest Price", callback_data: "priceType:1" }],
-          [{ text: "Lowest Price", callback_data: "priceType:2" }],
+          [
+            {
+              text: "Open Inline Web",
+              web_app:{url: "https://kibokodegensite.netlify.app"},
+            },
+          ],
         ],
       },
     });
+  } else if (command === "/command2") {
+    showTokenSelection(msg.chat.id, 3); // Closing Price
+  } else if (command === "/command3") {
+    showTokenSelection(msg.chat.id, 0); // Opening Price
+  } else if (command === "/command4") {
+    showTokenSelection(msg.chat.id, 1); // Highest Price
+  } else if (command === "/command5") {
+    showTokenSelection(msg.chat.id, 2); // Lowest Price
   }
 });
 
@@ -203,39 +213,13 @@ bot.on("callback_query", async (query) => {
 
   console.log("Callback data received:", data);
 
-  if (data === "subscribe") {
-    bot.sendMessage(chatId, "Click the button below to open the website:", {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "Open Inline Web",
-              url: "https://kibokodegensite.netlify.app",
-            },
-          ],
-        ],
-      },
-    });
-    return;
-  }
-
-  if (data?.startsWith("priceType:")) {
-    let priceType = parseInt(data.split(":")[1].trim());
-
-    console.log(`Price type selected: ${priceType}, showing token selection.`);
-
-    showTokenSelection(chatId, priceType);
-
-    return;
-  }
-
   if (data?.startsWith("token:")) {
     let [_, tokenName, priceType] = data.split(":");
-    priceType = parseInt(priceType.trim());
+    let priceTypeNum = parseInt(priceType.trim());
 
     console.log(`Token selected: ${tokenName}, showing calendar.`);
 
-    inMemory[chatId] = { tokenName, date: null, priceType };
+    inMemory[chatId] = { tokenName, date: null, priceType: priceTypeNum };
 
     calendar.startNavCalendar(message);
 
@@ -302,7 +286,7 @@ bot.on("callback_query", async (query) => {
 
     console.log("Response from processPriceRequest", response);
 
-    inMemory[chatId] = { tokenName: null, date: null, priceType: null };
+    inMemory[chatId] = { tokenName: "", date: "", priceType: 0 };
 
     return;
   }
