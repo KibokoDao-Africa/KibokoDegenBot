@@ -112,6 +112,7 @@ async function processPriceRequest(
       throw new Error("No predictions returned.");
     }
   } catch (error: any) {
+    console.error("Error during price request:", error);
     await bot.sendMessage(chatId, "Error processing request.");
   }
 }
@@ -156,7 +157,7 @@ bot.on("callback_query", async (query) => {
     await calendar.startNavCalendar(query.message);
   }
 
-  if (query.data?.startsWith("date:")) {
+  if (query.data?.startsWith("calendar:")) {
     const selectedDate = query.data.split(":")[1];
     inMemory[chatId] = { ...inMemory[chatId], date: selectedDate };
 
