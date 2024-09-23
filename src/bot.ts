@@ -1,12 +1,13 @@
 import TelegramBot, { Message } from "node-telegram-bot-api";
 import axios from "axios";
 import { differenceInCalendarDays, parseISO } from "date-fns";
+
 const Calendar = require("telegram-inline-calendar");
 
 const token: string = process.env.TELEGRAM_BOT_TOKEN || "";
 const MODEL_API_URL = process.env.MODEL_API_URL || "";
 const webhookUrl: string = process.env.PREVIOUS_WEBHOOK || "";
-const bot = new TelegramBot(token, { webHook: true });
+export const bot = new TelegramBot(token, { webHook: true });
 const calendar = new Calendar(bot, {
   date_format: "YYYY-MM-DD",
   language: "en",
@@ -55,32 +56,18 @@ const TOKENS: Record<string, number> = {
 };
 
 type ChatId = number;
-
 type Payload = {
   tokenName: string | null;
   date: string | null;
   priceType: number | null;
 };
-
 let inMemory: Record<ChatId, Payload> = {};
 
-function showTokenSelection(chatId: number): void {
+async function showTokenSelection(chatId: number): Promise<void> {
   const keyboard = Object.keys(TOKENS).map((token) => {
     return [{ text: token, callback_data: `token:${token}` }];
   });
-  bot.sendMessage(chatId, "Select a token:", {
-    reply_markup: { inline_keyboard: keyboard },
-  });
-}
-
-function showPriceTypeSelection(chatId: number): void {
-  const keyboard = [
-    [{ text: "Open", callback_data: `priceType:0` }],
-    [{ text: "High", callback_data: `priceType:1` }],
-    [{ text: "Low", callback_data: `priceType:2` }],
-    [{ text: "Close", callback_data: `priceType:3` }],
-  ];
-  bot.sendMessage(chatId, "Select price type:", {
+  await bot.sendMessage(chatId, "Select a token:", {
     reply_markup: { inline_keyboard: keyboard },
   });
 }
@@ -94,187 +81,84 @@ async function processPriceRequest(
   try {
     const latestDateString = "2024-01-23";
     const latestDate = parseISO(latestDateString);
-    console.log("Latest date object:", latestDate);
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      console.error("Invalid date format received:", dateString);
-      await bot.sendMessage(
-        chatId,
-        "Error: Date format is invalid. Please use YYYY-MM-DD."
-      );
-      return;
-    }
 
     const requestedDate = parseISO(dateString);
-    console.log("Requested date object:", requestedDate);
-
     const daysDifference = differenceInCalendarDays(requestedDate, latestDate);
-    console.log("Days difference:", daysDifference);
-    if (daysDifference < 0) {
-      await bot.sendMessage(
-        chatId,
-        `Error: Date must be after ${latestDateString}.`
-      );
-      return;
-    }
-
     const intervals = Math.max(0, daysDifference) / 4;
-    console.log("Logging the interval here:", intervals);
-    if (isNaN(intervals)) {
-      console.error(
-        "Calculated intervals is NaN, daysDifference was:",
-        daysDifference
-      );
-      await bot.sendMessage(
-        chatId,
-        "Error: There was a problem calculating the intervals."
-      );
-      return;
-    }
-
     let tokenId = TOKENS[tokenName];
-
-    if (!tokenId && tokenId !== 0) {
-      console.error("Invalid token name:", tokenName);
-      await bot.sendMessage(chatId, "Error: Invalid token name received.");
-      return;
-    }
 
     let body = {
       signature_name: "serving_default",
       instances: [intervals, tokenId, priceType],
     };
 
-    console.log("Sending data to model:", JSON.stringify(body));
-
     let { data } = await axios({
       method: "POST",
       url: MODEL_API_URL,
       data: body,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
     });
 
-    console.log("Response from the model:", data);
-
-    let { predictions } = data;
-    let predictedPrice = predictions
-      ? predictions[predictions.length - 1]
+    let predictedPrice = data.predictions
+      ? data.predictions[data.predictions.length - 1]
       : null;
 
-    if (!predictedPrice) {
-      throw new Error("No predictions returned from the model.");
-    }
-
-    await bot.sendMessage(
-      chatId,
-      `Predicted ${["open", "high", "low", "close"][priceType]} price for ${tokenName} on ${dateString}: ${predictedPrice}`
-    );
-  } catch (error: any) {
-    console.error("Error during price request:");
-    let errorMessage = "Sorry, there was an error processing your request.";
-
-    if (error.response) {
-      console.log(error.response.data);
-      console.log(error.response.status);
-      console.log(error.response.headers);
-    } else if (error.request) {
-      console.log(error.request);
+    if (predictedPrice) {
+      await bot.sendMessage(
+        chatId,
+        `Predicted ${["open", "high", "low", "close"][priceType]} price for ${tokenName} on ${dateString}: ${predictedPrice}`
+      );
     } else {
-      console.log("Error", error.message);
+      throw new Error("No predictions returned.");
     }
-    console.log(error.config);
-
-    await bot.sendMessage(chatId, errorMessage);
+  } catch (error: any) {
+    await bot.sendMessage(chatId, "Error processing request.");
   }
 }
 
-// Bot listens for a /start command or initial price type selection
-bot.onText(/\/start/, (msg) => {
+// Handle the price commands
+bot.on("message", async (msg: Message) => {
   const chatId = msg.chat.id;
-  showPriceTypeSelection(chatId);
+  const command = msg.text;
+
+  if (command) { // Check if command is defined
+    if (command === "/start") {
+      await bot.sendMessage(chatId, "Welcome! Use the following commands to get prices:");
+      await bot.sendMessage(chatId, "/open_price - Get the open price");
+      await bot.sendMessage(chatId, "/closing_price - Get the closing price");
+      await bot.sendMessage(chatId, "/lowest_price - Get the lowest price");
+      await bot.sendMessage(chatId, "/highest_price - Get the highest price");
+    } else if (command === "/open_price" || command === "/closing_price" || command === "/lowest_price" || command === "/highest_price") {
+      const priceTypeMap: Record<string, number> = {
+        "/open_price": 0,
+        "/closing_price": 3,
+        "/lowest_price": 2,
+        "/highest_price": 1,
+      };
+
+      const priceType = priceTypeMap[command];
+      inMemory[chatId] = { tokenName: null, date: null, priceType };
+
+      await showTokenSelection(chatId); // Show token selection after choosing price type
+    } else if (inMemory[chatId]?.priceType !== null) {
+      // This section will handle token selection and date selection
+      let tokenName = command.trim();
+      if (TOKENS[tokenName] !== undefined) {
+        inMemory[chatId].tokenName = tokenName;
+        calendar.startNavCalendar(msg);
+      } else {
+        await bot.sendMessage(chatId, "Invalid token. Please select a valid token.");
+      }
+    }
+
+    let selectedDate: string | -1 = calendar.clickButtonCalendar(msg);
+    if (selectedDate !== -1) {
+      selectedDate = selectedDate.toString().trim();
+      inMemory[chatId] = { ...inMemory[chatId], date: selectedDate };
+      let { tokenName, date, priceType } = inMemory[chatId];
+      if (tokenName && date && priceType !== null) {
+        await processPriceRequest(chatId, tokenName, date, priceType);
+      }
+    }
+  }
 });
-
-bot.on("callback_query", async (query) => {
-  let { message, data } = query;
-
-  let chatId = message?.chat.id || -1;
-
-  console.log("Callback data received:", data);
-
-  if (data?.startsWith("priceType:")) {
-    let priceType = parseInt(data.split(":")[1].trim());
-    console.log(`Price type selected: ${priceType}, showing token selection.`);
-
-    inMemory[chatId] = { tokenName: null, date: null, priceType };
-
-    showTokenSelection(chatId);
-
-    return;
-  }
-
-  if (data?.startsWith("token:")) {
-    let tokenName = data.split(":")[1].trim();
-    console.log(`Token selected: ${tokenName}, showing calendar.`);
-
-    inMemory[chatId] = { ...inMemory[chatId], tokenName };
-
-    calendar.startNavCalendar(message);
-
-    return;
-  }
-
-  let selectedDate: string | -1 = calendar.clickButtonCalendar(query);
-
-  if (selectedDate !== -1 || data?.startsWith("date:")) {
-    selectedDate = (
-      data?.startsWith("date:") ? data.split(":")[1] : selectedDate
-    )
-      .toString()
-      .trim();
-
-    inMemory[chatId] = { ...inMemory[chatId], date: selectedDate };
-
-    let { tokenName, date, priceType } = inMemory[chatId];
-
-    if (!tokenName) {
-      console.error("Token not set when date was selected");
-      await bot.sendMessage(
-        chatId,
-        "Error: Token not selected. Please start over."
-      );
-      return;
-    }
-
-    if (!date) {
-      console.error("Date not set when date was selected");
-      await bot.sendMessage(
-        chatId,
-        "Error: Date not selected. Please start over."
-      );
-      return;
-    }
-
-    if (priceType === null) {
-      console.error("Price type not set when date was selected");
-      await bot.sendMessage(
-        chatId,
-        "Error: Price type not selected. Please start over."
-      );
-      return;
-    }
-
-    console.log(`Date selected: ${date}, processing price request.`);
-
-    await processPriceRequest(chatId, tokenName, date, priceType);
-
-    inMemory[chatId] = { tokenName: null, date: null, priceType: null };
-
-    return;
-  }
-
-  bot.sendMessage(chatId, "Error: Invalid input received. Please start over.");
-});
-
-export { bot };
