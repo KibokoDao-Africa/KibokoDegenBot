@@ -121,7 +121,7 @@ bot.on("message", async (msg: Message) => {
   const chatId = msg.chat.id;
   const command = msg.text;
 
-  if (command) { // Check if command is defined
+  if (command) {
     if (command === "/start") {
       await bot.sendMessage(chatId, "Welcome! Use the following commands to get prices:");
       await bot.sendMessage(chatId, "/open_price - Get the open price");
@@ -139,26 +139,30 @@ bot.on("message", async (msg: Message) => {
       const priceType = priceTypeMap[command];
       inMemory[chatId] = { tokenName: null, date: null, priceType };
 
-      await showTokenSelection(chatId); // Show token selection after choosing price type
-    } else if (inMemory[chatId]?.priceType !== null) {
-      // This section will handle token selection and date selection
-      let tokenName = command.trim();
-      if (TOKENS[tokenName] !== undefined) {
-        inMemory[chatId].tokenName = tokenName;
-        calendar.startNavCalendar(msg);
-      } else {
-        await bot.sendMessage(chatId, "Invalid token. Please select a valid token.");
-      }
+      await showTokenSelection(chatId);
     }
+  }
+});
 
-    let selectedDate: string | -1 = calendar.clickButtonCalendar(msg);
-    if (selectedDate !== -1) {
-      selectedDate = selectedDate.toString().trim();
-      inMemory[chatId] = { ...inMemory[chatId], date: selectedDate };
-      let { tokenName, date, priceType } = inMemory[chatId];
-      if (tokenName && date && priceType !== null) {
-        await processPriceRequest(chatId, tokenName, date, priceType);
-      }
+// Handle callback queries (for token selection and calendar navigation)
+bot.on("callback_query", async (query) => {
+  const chatId = query.message?.chat.id || -1;
+
+  if (query.data?.startsWith("token:")) {
+    const tokenName = query.data.split(":")[1];
+    inMemory[chatId] = { ...inMemory[chatId], tokenName };
+    
+    // Show the inline calendar after the token is selected
+    await calendar.startNavCalendar(query.message);
+  }
+
+  if (query.data?.startsWith("date:")) {
+    const selectedDate = query.data.split(":")[1];
+    inMemory[chatId] = { ...inMemory[chatId], date: selectedDate };
+
+    const { tokenName, date, priceType } = inMemory[chatId];
+    if (tokenName && date && priceType !== null) {
+      await processPriceRequest(chatId, tokenName, date, priceType);
     }
   }
 });
