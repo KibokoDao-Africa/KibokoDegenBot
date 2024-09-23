@@ -1,7 +1,6 @@
 import TelegramBot, { Message } from "node-telegram-bot-api";
 import axios from "axios";
 import { differenceInCalendarDays, parseISO } from "date-fns";
-
 const Calendar = require("telegram-inline-calendar");
 
 const token: string = process.env.TELEGRAM_BOT_TOKEN || "";
@@ -191,22 +190,10 @@ async function processPriceRequest(
   }
 }
 
-bot.on("message", (msg: Message) => {
-  const command = msg.text;
-  if (command === "/button") {
-    bot.sendMessage(msg.chat.id, "Click the button below to proceed:", {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "Open Inline Web",
-              url: "https://kibokodegensite.netlify.app",
-            },
-          ],
-        ],
-      },
-    });
-  }
+// Bot listens for a /start command or initial price type selection
+bot.onText(/\/start/, (msg) => {
+  const chatId = msg.chat.id;
+  showPriceTypeSelection(chatId);
 });
 
 bot.on("callback_query", async (query) => {
@@ -216,24 +203,22 @@ bot.on("callback_query", async (query) => {
 
   console.log("Callback data received:", data);
 
-  if (data?.startsWith("token:")) {
-    let tokenName = data.split(":")[1].trim();
+  if (data?.startsWith("priceType:")) {
+    let priceType = parseInt(data.split(":")[1].trim());
+    console.log(`Price type selected: ${priceType}, showing token selection.`);
 
-    console.log(`Token selected: ${tokenName}, showing price type selection.`);
+    inMemory[chatId] = { tokenName: null, date: null, priceType };
 
-    inMemory[chatId] = { tokenName, date: null, priceType: null };
-
-    showPriceTypeSelection(chatId);
+    showTokenSelection(chatId);
 
     return;
   }
 
-  if (data?.startsWith("priceType:")) {
-    let priceType = parseInt(data.split(":")[1].trim());
+  if (data?.startsWith("token:")) {
+    let tokenName = data.split(":")[1].trim();
+    console.log(`Token selected: ${tokenName}, showing calendar.`);
 
-    console.log(`Price type selected: ${priceType}, showing calendar.`);
-
-    inMemory[chatId] = { ...inMemory[chatId], priceType };
+    inMemory[chatId] = { ...inMemory[chatId], tokenName };
 
     calendar.startNavCalendar(message);
 
@@ -255,50 +240,34 @@ bot.on("callback_query", async (query) => {
 
     if (!tokenName) {
       console.error("Token not set when date was selected");
-      let response = await bot.sendMessage(
+      await bot.sendMessage(
         chatId,
         "Error: Token not selected. Please start over."
       );
-
-      if (response) {
-        console.log("Response from bot.sendMessage", response);
-      }
       return;
     }
 
     if (!date) {
       console.error("Date not set when date was selected");
-      let response = bot.sendMessage(
+      await bot.sendMessage(
         chatId,
         "Error: Date not selected. Please start over."
       );
-
-      if (response) {
-        console.log("Response from bot.sendMessage", response);
-      }
-
       return;
     }
 
     if (priceType === null) {
       console.error("Price type not set when date was selected");
-      let response = bot.sendMessage(
+      await bot.sendMessage(
         chatId,
         "Error: Price type not selected. Please start over."
       );
-
-      if (response) {
-        console.log("Response from bot.sendMessage", response);
-      }
-
       return;
     }
 
     console.log(`Date selected: ${date}, processing price request.`);
 
-    let response = await processPriceRequest(chatId, tokenName, date, priceType);
-
-    console.log("Response from processPriceRequest", response);
+    await processPriceRequest(chatId, tokenName, date, priceType);
 
     inMemory[chatId] = { tokenName: null, date: null, priceType: null };
 
